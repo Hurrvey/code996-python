@@ -4,17 +4,33 @@
 
 统计 Git 项目的 commit 时间分布，计算 996 指数，生成精美的本地可视化报告。
 
-## ✨ 特点
+简体中文 | [English](./README-en_US.md)
+
+##  特点
 
 相比原版，本地版提供：
 
-- 🔒 **完全本地化** - 数据不通过 URL 传输，更安全私密
-- 📊 **独立 HTML 报告** - 一键生成可离线查看的完整报告
-- 🎨 **视觉完全一致** - 像素字体 + 手绘风格图表，还原原版效果
-- ⚙️ **灵活自定义** - 丰富的命令行参数，支持批量处理
-- 🚀 **开箱即用** - 纯 Python 实现，无需安装第三方库
+-  **完全本地化** - 数据不通过 URL 传输，更安全私密
+-  **独立 HTML 报告** - 一键生成可离线查看的完整报告
+-  **视觉完全一致** - 像素字体 + 手绘风格图表，还原原版效果
+-  **灵活自定义** - 丰富的命令行参数，支持批量处理
+-  **开箱即用** - 纯 Python 实现，无需安装第三方库
 
-## 🚀 快速开始
+##  预览
+
+分析 Git 项目的基本情况：
+
+![basic](./public/preview/1.png)
+
+通过图表查看 commit 提交分布：
+
+![chart](./public/preview/2.png)
+
+对比项目工作时间类型：
+
+![reference](./public/preview/3.png)
+
+##  快速开始
 
 ### 基础使用
 
@@ -39,8 +55,11 @@ python code996_local.py --start 2024-01-01 --end 2024-12-31
 # 分析特定开发者
 python code996_local.py --author "张三"
 
-# 分析其他项目
+# 分析本地其他项目
 python code996_local.py --repo /path/to/project
+
+# 分析远程 Git 仓库 ⭐ 新功能
+python code996_local.py --url https://github.com/user/repo
 
 # 自定义输出文件
 python code996_local.py --output report.html
@@ -49,24 +68,29 @@ python code996_local.py --output report.html
 code996_local.bat
 ```
 
-## 📋 参数说明
+##  参数说明
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `--start, -s` | 起始日期 (YYYY-MM-DD) | 2022-01-01 |
 | `--end, -e` | 结束日期 (YYYY-MM-DD) | 今天 |
 | `--author, -a` | 指定作者 (name/email) | 全部 |
-| `--repo, -r` | Git 仓库路径 | 当前目录 |
+| `--repo, -r` | 本地 Git 仓库路径 | 当前目录 |
+| `--url, -u` | 远程 Git 仓库 URL ⭐ 新功能 | 无 |
 | `--output, -o` | 输出文件名 | code996_report.html |
 | `--no-browser` | 不自动打开浏览器 | - |
 | `--help, -h` | 显示帮助 | - |
 
-## 💡 使用场景
+##  使用场景
 
 ### 1. 了解新公司加班情况
 ```bash
+# 本地项目
 cd /path/to/company/project
 python code996_local.py
+
+# 或直接分析远程仓库（无需克隆）
+python code996_local.py --url https://github.com/company/project
 ```
 
 ### 2. 个人年度工作总结
@@ -74,14 +98,26 @@ python code996_local.py
 python code996_local.py --author "我的名字" --start 2024-01-01
 ```
 
-### 3. 对比多个项目
+### 3. 快速分析开源项目
 ```bash
+# 无需手动克隆，直接分析
+python code996_local.py --url https://github.com/torvalds/linux
+python code996_local.py --url https://github.com/facebook/react
+```
+
+### 4. 对比多个项目
+```bash
+# 本地项目
 for proj in proj1 proj2 proj3; do
     python code996_local.py --repo /path/$proj --output ${proj}.html
 done
+
+# 远程项目
+python code996_local.py --url https://github.com/user/repo1 --output repo1.html
+python code996_local.py --url https://github.com/user/repo2 --output repo2.html
 ```
 
-### 4. 定期生成周报
+### 5. 定期生成周报
 ```bash
 python code996_local.py --output weekly_$(date +%Y%m%d).html
 ```
@@ -100,7 +136,7 @@ python code996_local.py --output weekly_$(date +%Y%m%d).html
 | **100** | **标准 996（早9晚9，每周6天）** |
 | \> 110 | 超重度加班 |
 
-## 🔧 核心算法
+##  核心算法
 
 ### 工作时间识别
 
@@ -136,7 +172,7 @@ overtime_ratio = adjusted_overtime / total_commits * 100
 index_996 = overtime_ratio * 3
 ```
 
-## 🎨 技术实现
+##  技术实现
 
 ### 关键技术点
 
@@ -156,13 +192,13 @@ index_996 = overtime_ratio * 3
 | 批量处理 | 不支持 | 支持 ✅ |
 | 隐私保护 | 一般 | 优秀 ✅ |
 
-## 📦 系统要求
+##  系统要求
 
 - Python 3.6+
 - Git 命令行工具
 - 无需安装任何 Python 第三方库
 
-## ❓ 常见问题
+##  常见问题
 
 ### 提示 "Git命令执行失败"
 
@@ -192,7 +228,7 @@ python code996_local.py --start 2020-01-01
 - https://fastly.jsdelivr.net/gh/hellodigua/cdn/fonts/zpix.woff2
 - https://fastly.jsdelivr.net/gh/hellodigua/cdn/fonts/vcr-osd.ttf
 
-## 📖 原理说明
+##  原理说明
 
 ### 数据来源
 
@@ -213,7 +249,7 @@ git log --date=format:%u --after="start" --before="end" | grep "Date:"
 4. 根据周末工作情况进行修正
 5. 计算 996 指数并生成报告
 
-## 🎯 注意事项
+##  注意事项
 
 1. **分析结果仅供参考**，不构成任何建议
 2. **commit 时间 ≠ 实际工作时间**，还有开会、文档等
@@ -221,11 +257,11 @@ git log --date=format:%u --after="start" --before="end" | grep "Date:"
 4. **个人项目**（工作时间不固定）也不准确
 5. **commit 数量过少**（< 50）结果参考价值有限
 
-## 🙏 致谢
+##  致谢
 
 本项目基于 [hellodigua/code996](https://github.com/hellodigua/code996) 改造。
 
-感谢原作者 [@hellodigua](https://github.com/hellodigua) 和所有贡献者。
+感谢原作者 [@hellodigua](https://github.com/hellodigua) 和其它所有贡献者。
 
 ### 相关项目
 
@@ -235,9 +271,9 @@ git log --date=format:%u --after="start" --before="end" | grep "Date:"
 - zpix 字体：https://github.com/SolidZORO/zpix-pixel-font
 - 996.ICU：https://github.com/996icu/996.ICU
 
-## 📄 许可
+##  许可
 
-本项目遵循原项目的 [Unlicense](LICENSE) 许可。
+本项目遵循原项目的 [MIT](LICENSE) 许可。
 
 ---
 

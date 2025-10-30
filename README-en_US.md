@@ -1,98 +1,284 @@
-# code996
+# code996 Python Local Version
 
-code996 is an analytics tool that can be used to calculate the commit time distribution of a Git project and derive the coding intensity of that project.
+Python local implementation based on [hellodigua/code996](https://github.com/hellodigua/code996).
 
-Preview: https://hellodigua.github.io/code996/
+Analyze Git commit time distribution, calculate 996 index, and generate beautiful local visualization reports.
 
-English | [简体中文](./README.md)
+[简体中文](./README.md) | English
 
-## How to Use
+## Features
 
-For Mac or Linux users.
+Compared to the original version, the local version provides:
 
-**In the root directory of your Git project**, run the following command.
-
-```sh
-curl -fsSL https://fastly.jsdelivr.net/gh/hellodigua/code996/bin/code996_en.sh | bash
-```
-
-Windows users.
-
-Download the script `https://fastly.jsdelivr.net/gh/hellodigua/code996/bin/code996_en.sh`
-
-Then move the script to the Git project directory you want to analyze, and execute the following command.
-
-```sh
-sh code996_en.sh
-```
+- **Fully Local** - Data is not transmitted via URL, more secure and private
+- **Standalone HTML Reports** - Generate complete reports that can be viewed offline
+- **Visual Consistency** - Pixel fonts + hand-drawn style charts, fully restored original effect
+- **Flexible Customization** - Rich command-line parameters, support batch processing
+- **Ready to Use** - Pure Python implementation, no third-party libraries required
 
 ## Preview
 
-Basic information about the project to analyze.
+Analyze basic Git project information:
 
 ![basic](./public/preview/1.png)
 
-View commit distribution by graph: !
+View commit distribution through charts:
 
 ![chart](./public/preview/2.png)
 
-Compare project work time types.
+Compare project work time types:
 
 ![reference](./public/preview/3.png)
 
-## How it works
+## Quick Start
 
-1. use git-log to query the project **current branches** and get the commit statistics summarized by hour and by day
-2. convert the query results from the local script to URL arguments and open the URL to the browser
-3. get the data from the URL, process it with some rules, and visualize the results
+### Basic Usage
 
-## Is it safe?
+Run in your Git project root directory:
 
-1. neither the script side nor the web side collects any data
-2. the URL itself does not disclose sensitive information such as project name, except for common data such as start time of analysis, commit statistics, etc.
-3. all code has been open source, accepting community supervision
+```bash
+python code996_local.py
+```
 
-## Caution
+The script will automatically:
+1. Analyze Git commit history
+2. Calculate 996 index
+3. Generate HTML report
+4. Open in browser
 
-- The analysis results are for reference only and do not constitute any recommendation
-- The original analysis data is transmitted via URL, please be careful if you want to share it
-- Please do not use it for official purposes
+### Common Commands
 
-## Other Questions
+```bash
+# Specify time range
+python code996_local.py --start 2024-01-01 --end 2024-12-31
 
-### Q: What is the 996 Index?
+# Analyze specific developer
+python code996_local.py --author "John Doe"
 
-The 996 Index is a data indicator defined by the project to reflect the overtime situation of the project.
+# Analyze other local projects
+python code996_local.py --repo /path/to/project
 
-After standardizing the overtime situation, we can easily compare the work intensity of projects across teams and companies.
+# Analyze remote Git repository ⭐ New Feature
+python code996_local.py --url https://github.com/user/repo
 
-### Q: Under what circumstances are code996's analysis results inaccurate?
+# Custom output file
+python code996_local.py --output report.html
 
-- The default statistics of the script is the overall project commit time, which represents the work status of all participants in the project during this time, and may deviate from the actual situation of individuals
-- In addition to coding, we also need to meet, write documents, study and fish, so it can't cover the actual working time either
-- Projects developed across borders and time zones cannot be counted correctly
-- Projects with irregular working hours (e.g. personal open source projects) can't be counted either
+# Windows users can double-click
+code996_local.bat
+```
 
-### Q: I have a better idea
+## Parameters
 
-Any ideas and comments are welcome to share, and you are welcome to modify it after Fork.
+| Parameter | Description | Default |
+|------|------|--------|
+| `--start, -s` | Start date (YYYY-MM-DD) | 2022-01-01 |
+| `--end, -e` | End date (YYYY-MM-DD) | Today |
+| `--author, -a` | Specify author (name/email) | All |
+| `--repo, -r` | Local Git repository path | Current directory |
+| `--url, -u` | Remote Git repository URL ⭐ New Feature | None |
+| `--output, -o` | Output file name | code996_report.html |
+| `--no-browser` | Don't open browser automatically | - |
+| `--help, -h` | Show help | - |
 
-## Disclaimer
+## Use Cases
 
-This project is for learning and communication only, code996 does not assume any responsibility for any consequences caused by the use and dissemination of this program and its ancillary products.
+### 1. Understand Overtime at New Company
+```bash
+# Local project
+cd /path/to/company/project
+python code996_local.py
 
-We have listed below some of the possible consequences of using this program, please be aware of them.
+# Or analyze remote repository directly (no cloning needed)
+python code996_local.py --url https://github.com/company/project
+```
 
-- Computer crash, lag, reboot
-- Blue screen, white screen, black screen, splash screen
-- Your boss or colleague sees you groping for fish
-- You are found by your colleague through code996 that you are fishing in the past
-- Leak confidential information and be dealt with by security department
-- Late for work
-- Being graduated
-- Stock market crash
-- Earth explodes
+### 2. Personal Annual Work Summary
+```bash
+python code996_local.py --author "My Name" --start 2024-01-01
+```
+
+### 3. Quick Analysis of Open Source Projects
+```bash
+# No manual cloning needed, analyze directly
+python code996_local.py --url https://github.com/torvalds/linux
+python code996_local.py --url https://github.com/facebook/react
+```
+
+### 4. Compare Multiple Projects
+```bash
+# Local projects
+for proj in proj1 proj2 proj3; do
+    python code996_local.py --repo /path/$proj --output ${proj}.html
+done
+
+# Remote projects
+python code996_local.py --url https://github.com/user/repo1 --output repo1.html
+python code996_local.py --url https://github.com/user/repo2 --output repo2.html
+```
+
+### 5. Regular Weekly Reports
+```bash
+python code996_local.py --output weekly_$(date +%Y%m%d).html
+```
+
+## 📊 996 Index Explanation
+
+996 Index = Overtime Percentage × 3
+
+| Index | Meaning |
+|------|------|
+| < 0 | Under-saturated work, very relaxed |
+| 0-10 | No overtime, work-life balance |
+| 10-50 | Light overtime |
+| 50-90 | Moderate overtime |
+| 90-110 | Heavy overtime (close to 996) |
+| **100** | **Standard 996 (9AM-9PM, 6 days/week)** |
+| \> 110 | Extreme overtime |
+
+## Core Algorithm
+
+### Work Time Recognition
+
+Using Root Mean Square (RMS) algorithm to identify work hours:
+
+```python
+# Calculate standard value
+standard_value = sqrt(sum(count²) / total_hours)
+
+# Filter work hours (threshold 0.45)
+work_hours = [h for h in hours if h.count / standard_value >= 0.45]
+
+# Identify start time (earliest between 8-12)
+opening_time = min([h for h in work_hours if 8 <= h <= 12])
+
+# Identify end time (latest between 17-23)
+closing_time = max([h for h in work_hours if 17 <= h <= 23])
+```
+
+### 996 Index Calculation
+
+```python
+# Work time: 9 hours from start time
+work_commits = commits_in(opening_time, opening_time + 9)
+overtime_commits = total_commits - work_commits
+
+# Weekend adjustment (all weekend counts as overtime)
+adjusted_overtime = overtime_commits + 
+    (work_commits * weekend_commits / (weekday_commits + weekend_commits))
+
+# Calculate index
+overtime_ratio = adjusted_overtime / total_commits * 100
+index_996 = overtime_ratio * 3
+```
+
+## Technical Implementation
+
+### Key Technologies
+
+1. **SVG Chart Rendering** - Use [chart.xkcd](https://github.com/timqian/chart.xkcd) for hand-drawn style charts
+2. **Pixel Fonts** - Use [zpix](https://github.com/SolidZORO/zpix-pixel-font) pixel font and vcr-osd retro font
+3. **Dark Theme** - #212121 background, #2a2a2a cards, fully restored original version
+4. **Pure Python** - Only standard library, no third-party dependencies
+
+### Comparison with Original
+
+| Feature | Original (Online) | Python Local Version |
+|------|------------|--------------|
+| Usage | Bash + Online page | Python script |
+| Data Transfer | URL parameters | Fully local ✅ |
+| Report Form | Online page | Standalone HTML ✅ |
+| Customization | Limited | Rich parameters ✅ |
+| Batch Processing | Not supported | Supported ✅ |
+| Privacy | General | Excellent ✅ |
+
+## System Requirements
+
+- Python 3.6+
+- Git command-line tool
+- No Python third-party libraries required
+
+## FAQ
+
+### "Git command execution failed"
+
+Make sure current directory is a Git repository:
+```bash
+git status  # Check if it's a Git repository
+```
+
+### Commit count is 0
+
+Adjust time range:
+```bash
+python code996_local.py --start 2020-01-01
+```
+
+### Charts not displaying
+
+Check network connection (CDN resources needed):
+- chart.xkcd library (~50KB)
+- zpix font (~90KB)
+- vcr-osd font (~20KB)
+
+### Fully Offline Usage
+
+Download the following files locally and modify CDN links in the script:
+- https://cdn.jsdelivr.net/npm/chart.xkcd@1.1.13/dist/chart.xkcd.min.js
+- https://fastly.jsdelivr.net/gh/hellodigua/cdn/fonts/zpix.woff2
+- https://fastly.jsdelivr.net/gh/hellodigua/cdn/fonts/vcr-osd.ttf
+
+## How It Works
+
+### Data Source
+
+Retrieve commit history via `git log` command:
+```bash
+# Hourly statistics
+git log --date=format:%H --after="start" --before="end" | grep "Date:"
+
+# Weekly statistics
+git log --date=format:%u --after="start" --before="end" | grep "Date:"
+```
+
+### Analysis Steps
+
+1. Count commits by hour and by day
+2. Use RMS algorithm to identify work time range
+3. Calculate work time and overtime commit distribution
+4. Adjust based on weekend work
+5. Calculate 996 index and generate report
+
+## Important Notes
+
+1. **Analysis results are for reference only**, do not constitute any advice
+2. **Commit time ≠ actual work time**, meetings, documentation, etc. are not included
+3. **Cross-timezone projects** may have inaccurate statistics
+4. **Personal projects** (irregular work hours) may also be inaccurate
+5. **Too few commits** (< 50) have limited reference value
+
+## Acknowledgments
+
+This project is a modification of [hellodigua/code996](https://github.com/hellodigua/code996).
+
+Thanks to the original author [@hellodigua](https://github.com/hellodigua) and all other contributors.
+
+### Related Projects
+
+- Original project: https://github.com/hellodigua/code996
+- Online demo: https://hellodigua.github.io/code996/
+- chart.xkcd: https://github.com/timqian/chart.xkcd
+- zpix font: https://github.com/SolidZORO/zpix-pixel-font
+- 996.ICU: https://github.com/996icu/996.ICU
 
 ## License
 
-This program and its source code and compiled products are subject to the [Unlicense](LICENSE) license, and its dependencies on related libraries and content are not licensed under promise, please refer to their original licenses.
+This project follows the original project's [MIT](LICENSE) license.
+
+---
+
+**Project URL**: https://github.com/hellodigua/code996  
+**Python Local Version Author**: Modified from original project
+
+Issues and Pull Requests are welcome.
+

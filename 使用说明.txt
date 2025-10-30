@@ -26,8 +26,11 @@ python code996_local.py --output my_report.html
 # 不自动打开浏览器
 python code996_local.py --no-browser
 
-# 分析其他项目
+# 分析本地其他项目
 python code996_local.py --repo D:\path\to\project
+
+# 分析远程 Git 仓库（新功能）
+python code996_local.py --url https://github.com/user/repo
 
 【Windows 用户】
 
@@ -48,9 +51,13 @@ python code996_local.py --start 2024-01-01 --end 2024-12-31 --author "张三"
 # 示例2：分析最近3个月
 python code996_local.py --start 2024-07-01
 
-# 示例3：批量分析多个项目
+# 示例3：批量分析多个项目（本地）
 python code996_local.py --repo D:\projects\project1 --output project1.html
 python code996_local.py --repo D:\projects\project2 --output project2.html
+
+# 示例4：分析远程开源项目
+python code996_local.py --url https://github.com/torvalds/linux --output linux.html
+python code996_local.py --url https://github.com/facebook/react --output react.html
 
 【生成的报告】
 

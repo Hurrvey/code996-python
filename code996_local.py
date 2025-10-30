@@ -14,14 +14,54 @@ from collections import defaultdict
 import argparse
 import math
 import webbrowser
+import tempfile
+import shutil
 
 class Code996Analyzer:
-    def __init__(self, start_date=None, end_date=None, author=None, repo_path="."):
+    def __init__(self, start_date=None, end_date=None, author=None, repo_path=".", remote_url=None):
         self.start_date = start_date or "2022-01-01"
         self.end_date = end_date or datetime.now().strftime("%Y-%m-%d")
         self.author = author or ""
         self.repo_path = repo_path
+        self.remote_url = remote_url
+        self.temp_dir = None  # 用于存储临时克隆的目录
         
+    def clone_remote_repo(self):
+        """克隆远程仓库到临时目录"""
+        if not self.remote_url:
+            return
+        
+        print(f"正在克隆远程仓库: {self.remote_url}")
+        print("这可能需要一些时间，请耐心等待...")
+        
+        # 创建临时目录
+        self.temp_dir = tempfile.mkdtemp(prefix="code996_")
+        
+        try:
+            # 克隆仓库（浅克隆以提高速度）
+            cmd = ["git", "clone", "--depth", "1000", self.remote_url, self.temp_dir]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            # 更新 repo_path 为临时目录
+            self.repo_path = self.temp_dir
+            print(f"✓ 仓库克隆完成")
+            
+        except subprocess.CalledProcessError as e:
+            print(f"克隆失败: {e.stderr}", file=sys.stderr)
+            if self.temp_dir and os.path.exists(self.temp_dir):
+                shutil.rmtree(self.temp_dir)
+            sys.exit(1)
+    
+    def cleanup(self):
+        """清理临时目录"""
+        if self.temp_dir and os.path.exists(self.temp_dir):
+            print(f"正在清理临时文件...")
+            try:
+                shutil.rmtree(self.temp_dir)
+                print("✓ 临时文件已清理")
+            except Exception as e:
+                print(f"警告: 清理临时文件失败: {e}", file=sys.stderr)
+    
     def run_git_command(self, date_format):
         """运行git log命令获取统计数据"""
         cmd = [
@@ -37,6 +77,7 @@ class Code996Analyzer:
             return result.stdout
         except subprocess.CalledProcessError as e:
             print(f"Git命令执行失败: {e}", file=sys.stderr)
+            self.cleanup()
             sys.exit(1)
     
     def parse_date_output(self, output):
@@ -236,6 +277,10 @@ class Code996Analyzer:
     
     def analyze(self):
         """执行完整的分析流程"""
+        # 如果是远程仓库，先克隆
+        if self.remote_url:
+            self.clone_remote_repo()
+        
         print(f"正在分析 Git 项目...")
         print(f"统计时间范围：{self.start_date} 至 {self.end_date}")
         
@@ -768,9 +813,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
+  # 分析本地项目
   python code996_local.py
   python code996_local.py --start 2023-01-01 --end 2023-12-31
   python code996_local.py --author "yourname" --output my_report.html
+  
+  # 分析远程项目
+  python code996_local.py --url https://github.com/user/repo
+  python code996_local.py --url https://github.com/user/repo --author "yourname"
         """
     )
     
@@ -782,6 +832,8 @@ def main():
                         help='指定提交用户 (name 或 email)')
     parser.add_argument('--repo', '-r', default='.',
                         help='Git 仓库路径 (默认: 当前目录)')
+    parser.add_argument('--url', '-u', default=None,
+                        help='远程 Git 仓库 URL (如: https://github.com/user/repo)')
     parser.add_argument('--output', '-o', default='code996_report.html',
                         help='输出HTML文件名 (默认: code996_report.html)')
     parser.add_argument('--no-browser', action='store_true',
@@ -794,37 +846,43 @@ def main():
         start_date=args.start,
         end_date=args.end,
         author=args.author,
-        repo_path=args.repo
+        repo_path=args.repo,
+        remote_url=args.url
     )
     
-    # 执行分析
-    result = analyzer.analyze()
-    
-    # 生成HTML报告
-    output_file = generate_html(result, args.output)
-    
-    # 打印结果摘要
-    print("\n" + "="*50)
-    print("分析结果摘要")
-    print("="*50)
-    if result['is_standard']:
-        print(f"996指数: {result['index_996']}")
-        print(f"工作类型: {result['opening_hour'] or '?'}{result['closing_hour'] or '?'}{result['work_days']}")
-        print(f"加班占比: {result['overtime_ratio']}%")
-        print(f"评价: {result['description']}")
-    else:
-        if result['total_count'] <= 50:
-            print("该项目的 commit 数量过少，只显示基本信息")
+    try:
+        # 执行分析
+        result = analyzer.analyze()
+        
+        # 生成HTML报告
+        output_file = generate_html(result, args.output)
+        
+        # 打印结果摘要
+        print("\n" + "="*50)
+        print("分析结果摘要")
+        print("="*50)
+        if result['is_standard']:
+            print(f"996指数: {result['index_996']}")
+            print(f"工作类型: {result['opening_hour'] or '?'}{result['closing_hour'] or '?'}{result['work_days']}")
+            print(f"加班占比: {result['overtime_ratio']}%")
+            print(f"评价: {result['description']}")
         else:
-            print("该项目为开源项目，只显示基本信息")
-    print(f"总commit数: {result['total_count']}")
-    print("="*50)
+            if result['total_count'] <= 50:
+                print("该项目的 commit 数量过少，只显示基本信息")
+            else:
+                print("该项目为开源项目，只显示基本信息")
+        print(f"总commit数: {result['total_count']}")
+        print("="*50)
+        
+        # 打开浏览器
+        if not args.no_browser:
+            abs_path = os.path.abspath(output_file)
+            print(f"\n正在打开浏览器...")
+            webbrowser.open(f'file://{abs_path}')
     
-    # 打开浏览器
-    if not args.no_browser:
-        abs_path = os.path.abspath(output_file)
-        print(f"\n正在打开浏览器...")
-        webbrowser.open(f'file://{abs_path}')
+    finally:
+        # 清理临时文件
+        analyzer.cleanup()
 
 
 if __name__ == '__main__':
