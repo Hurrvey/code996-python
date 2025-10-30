@@ -16,6 +16,7 @@ import math
 import webbrowser
 import tempfile
 import shutil
+import re
 
 class Code996Analyzer:
     def __init__(self, start_date=None, end_date=None, author=None, repo_path=".", remote_url=None):
@@ -25,7 +26,39 @@ class Code996Analyzer:
         self.repo_path = repo_path
         self.remote_url = remote_url
         self.temp_dir = None  # 用于存储临时克隆的目录
+        self.project_name = None  # 项目名称
         
+    def get_project_name(self):
+        """获取项目名称"""
+        if self.project_name:
+            return self.project_name
+        
+        try:
+            # 尝试从 git remote 获取
+            cmd = ["git", "-C", self.repo_path, "remote", "get-url", "origin"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                # 从 URL 中提取项目名
+                # 例如：https://github.com/user/repo.git -> user/repo
+                url = result.stdout.strip()
+                # 移除 .git 后缀
+                url = re.sub(r'\.git$', '', url)
+                # 提取用户名/项目名部分
+                match = re.search(r'[:/]([^/]+/[^/]+)/?$', url)
+                if match:
+                    self.project_name = match.group(1).replace('/', '-')
+                    return self.project_name
+            
+            # 如果从 remote 获取失败，使用目录名
+            self.project_name = os.path.basename(os.path.abspath(self.repo_path))
+            
+        except Exception:
+            # 出错时使用目录名
+            self.project_name = os.path.basename(os.path.abspath(self.repo_path))
+        
+        return self.project_name
+    
     def clone_remote_repo(self):
         """克隆远程仓库到临时目录"""
         if not self.remote_url:
@@ -33,6 +66,14 @@ class Code996Analyzer:
         
         print(f"正在克隆远程仓库: {self.remote_url}")
         print("这可能需要一些时间，请耐心等待...")
+        
+        # 从 URL 中提取项目名
+        url = re.sub(r'\.git$', '', self.remote_url)
+        match = re.search(r'[:/]([^/]+/[^/]+)/?$', url)
+        if match:
+            self.project_name = match.group(1).replace('/', '-')
+        else:
+            self.project_name = "unknown-project"
         
         # 创建临时目录
         self.temp_dir = tempfile.mkdtemp(prefix="code996_")
@@ -334,8 +375,35 @@ class Code996Analyzer:
         return result
 
 
-def generate_html(result, output_file='code996_report.html'):
+def get_default_output_filename(project_name):
+    """生成默认的输出文件名"""
+    # 获取当前时间
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d·%H-%M-%S")
+    
+    # 清理项目名（移除特殊字符）
+    clean_name = re.sub(r'[<>:"/\\|?*]', '-', project_name)
+    
+    # 生成文件名格式：项目名·时间戳-result.html
+    filename = f"{clean_name}·{timestamp}-result.html"
+    
+    # 创建 report 目录
+    report_dir = "report"
+    if not os.path.exists(report_dir):
+        os.makedirs(report_dir)
+    
+    # 返回完整路径
+    return os.path.join(report_dir, filename)
+
+
+def generate_html(result, output_file=None, project_name=None):
     """生成HTML报告"""
+    
+    # 如果未指定输出文件，使用默认格式
+    if not output_file:
+        if not project_name:
+            project_name = "unknown-project"
+        output_file = get_default_output_filename(project_name)
     
     # 读取chart.xkcd库
     chart_xkcd_cdn = "https://cdn.jsdelivr.net/npm/chart.xkcd@1.1.13/dist/chart.xkcd.min.js"
@@ -800,10 +868,14 @@ def generate_html(result, output_file='code996_report.html'):
 </html>
 """
     
+    # 确保输出目录存在
+    output_dir = os.path.dirname(output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html_content)
     
-    print(f"\n✓ HTML报告已生成: {output_file}")
     return output_file
 
 
@@ -834,8 +906,8 @@ def main():
                         help='Git 仓库路径 (默认: 当前目录)')
     parser.add_argument('--url', '-u', default=None,
                         help='远程 Git 仓库 URL (如: https://github.com/user/repo)')
-    parser.add_argument('--output', '-o', default='code996_report.html',
-                        help='输出HTML文件名 (默认: code996_report.html)')
+    parser.add_argument('--output', '-o', default=None,
+                        help='输出HTML文件名 (默认: report/项目名·时间戳-result.html)')
     parser.add_argument('--no-browser', action='store_true',
                         help='不自动打开浏览器')
     
@@ -854,13 +926,17 @@ def main():
         # 执行分析
         result = analyzer.analyze()
         
+        # 获取项目名称
+        project_name = analyzer.get_project_name()
+        
         # 生成HTML报告
-        output_file = generate_html(result, args.output)
+        output_file = generate_html(result, args.output, project_name)
         
         # 打印结果摘要
         print("\n" + "="*50)
         print("分析结果摘要")
         print("="*50)
+        print(f"项目名称: {project_name}")
         if result['is_standard']:
             print(f"996指数: {result['index_996']}")
             print(f"工作类型: {result['opening_hour'] or '?'}{result['closing_hour'] or '?'}{result['work_days']}")
@@ -874,9 +950,14 @@ def main():
         print(f"总commit数: {result['total_count']}")
         print("="*50)
         
+        # 显示生成的文件信息
+        abs_path = os.path.abspath(output_file)
+        print(f"\n✓ 报告已生成")
+        print(f"📄 文件名: {os.path.basename(output_file)}")
+        print(f"📁 保存位置: {abs_path}")
+        
         # 打开浏览器
         if not args.no_browser:
-            abs_path = os.path.abspath(output_file)
             print(f"\n正在打开浏览器...")
             webbrowser.open(f'file://{abs_path}')
     

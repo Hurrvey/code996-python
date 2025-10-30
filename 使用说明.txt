@@ -61,8 +61,11 @@ python code996_local.py --url https://github.com/facebook/react --output react.h
 
 【生成的报告】
 
-默认生成文件名：code996_report.html
-直接双击打开即可查看
+默认保存位置：report/ 目录
+文件名格式：项目名·时间戳-result.html
+示例：hellodigua-code996·2025-10-30·16-11-57-result.html
+
+直接双击 HTML 文件即可查看
 
 【996指数含义】
 

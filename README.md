@@ -43,7 +43,7 @@ python code996_local.py
 脚本会自动：
 1. 分析 Git 提交历史
 2. 计算 996 指数
-3. 生成 HTML 报告
+3. 生成 HTML 报告（保存在 `report/` 目录）
 4. 在浏览器中打开
 
 ### 常用命令
@@ -61,8 +61,9 @@ python code996_local.py --repo /path/to/project
 # 分析远程 Git 仓库 ⭐ 新功能
 python code996_local.py --url https://github.com/user/repo
 
-# 自定义输出文件
-python code996_local.py --output report.html
+# 自定义输出文件（可指定路径）
+python code996_local.py --output my_report.html
+python code996_local.py --output /path/to/report.html
 
 # Windows 用户直接双击
 code996_local.bat
@@ -76,8 +77,8 @@ code996_local.bat
 | `--end, -e` | 结束日期 (YYYY-MM-DD) | 今天 |
 | `--author, -a` | 指定作者 (name/email) | 全部 |
 | `--repo, -r` | 本地 Git 仓库路径 | 当前目录 |
-| `--url, -u` | 远程 Git 仓库 URL ⭐ 新功能 | 无 |
-| `--output, -o` | 输出文件名 | code996_report.html |
+| `--url, -u` | 远程 Git 仓库 URL ⭐ | 无 |
+| `--output, -o` | 输出文件名 | report/项目名·时间戳-result.html ⭐ |
 | `--no-browser` | 不自动打开浏览器 | - |
 | `--help, -h` | 显示帮助 | - |
 

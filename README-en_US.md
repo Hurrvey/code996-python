@@ -43,7 +43,7 @@ python code996_local.py
 The script will automatically:
 1. Analyze Git commit history
 2. Calculate 996 index
-3. Generate HTML report
+3. Generate HTML report (saved in `report/` directory)
 4. Open in browser
 
 ### Common Commands
@@ -61,8 +61,9 @@ python code996_local.py --repo /path/to/project
 # Analyze remote Git repository ⭐ New Feature
 python code996_local.py --url https://github.com/user/repo
 
-# Custom output file
-python code996_local.py --output report.html
+# Custom output file (can specify path)
+python code996_local.py --output my_report.html
+python code996_local.py --output /path/to/report.html
 
 # Windows users can double-click
 code996_local.bat
@@ -76,8 +77,8 @@ code996_local.bat
 | `--end, -e` | End date (YYYY-MM-DD) | Today |
 | `--author, -a` | Specify author (name/email) | All |
 | `--repo, -r` | Local Git repository path | Current directory |
-| `--url, -u` | Remote Git repository URL ⭐ New Feature | None |
-| `--output, -o` | Output file name | code996_report.html |
+| `--url, -u` | Remote Git repository URL ⭐ | None |
+| `--output, -o` | Output file name | report/project·timestamp-result.html ⭐ |
 | `--no-browser` | Don't open browser automatically | - |
 | `--help, -h` | Show help | - |
 

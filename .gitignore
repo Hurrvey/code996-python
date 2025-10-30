@@ -22,3 +22,6 @@ yarn-error.log*
 dist/
 stats.html
 .npmignore
+
+# Python 本地版生成的报告
+report/*.html

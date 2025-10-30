@@ -1,0 +1,7 @@
+# 报告输出目录
+
+此目录用于保存 code996_local.py 生成的分析报告。
+
+文件命名格式：项目名·时间戳-result.html
+示例：hellodigua-code996·2025-10-30·16-11-57-result.html
+
