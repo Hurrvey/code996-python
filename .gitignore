@@ -25,3 +25,6 @@ stats.html
 
 # Python 本地版生成的报告
 report/*.html
+
+# Python 本地版克隆的远程项目
+online_project/

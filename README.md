@@ -15,6 +15,8 @@
 -  **视觉完全一致** - 像素字体 + 手绘风格图表，还原原版效果
 -  **灵活自定义** - 丰富的命令行参数，支持批量处理
 -  **开箱即用** - 纯 Python 实现，无需安装第三方库
+-  **智能克隆** - 远程仓库仅下载 Git 历史，节省空间和时间
+-  **仓库复用** - 已克隆的远程仓库可重复使用
 
 ##  预览
 
@@ -101,9 +103,13 @@ python code996_local.py --author "我的名字" --start 2024-01-01
 
 ### 3. 快速分析开源项目
 ```bash
-# 无需手动克隆，直接分析
+# 无需手动克隆，直接分析（仅下载 Git 历史数据）
 python code996_local.py --url https://github.com/torvalds/linux
 python code996_local.py --url https://github.com/facebook/react
+
+# 仓库会保存在 online_project/ 目录，可复用
+# 再次分析时使用已下载的仓库（更快）：
+python code996_local.py --repo online_project/torvalds-linux
 ```
 
 ### 4. 对比多个项目
@@ -221,6 +227,24 @@ python code996_local.py --start 2020-01-01
 - chart.xkcd 库（~50KB）
 - zpix 字体（~90KB）
 - vcr-osd 字体（~20KB）
+
+### 远程仓库克隆很慢
+
+使用 `--bare` 克隆，只下载 Git 历史，不下载工作文件，速度更快：
+```bash
+# 已优化，自动使用 bare clone
+python code996_local.py --url https://github.com/user/repo
+```
+
+### 如何复用已克隆的仓库
+
+```bash
+# 第一次克隆（会保存在 online_project 目录）
+python code996_local.py --url https://github.com/facebook/react
+
+# 下次直接使用已克隆的仓库（无需重新下载）
+python code996_local.py --repo online_project/facebook-react
+```
 
 ### 完全离线使用
 

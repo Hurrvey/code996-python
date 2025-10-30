@@ -60,12 +60,12 @@ class Code996Analyzer:
         return self.project_name
     
     def clone_remote_repo(self):
-        """克隆远程仓库到临时目录"""
+        """克隆远程仓库（仅克隆 .git 目录）"""
         if not self.remote_url:
             return
         
         print(f"正在克隆远程仓库: {self.remote_url}")
-        print("这可能需要一些时间，请耐心等待...")
+        print("正在下载 Git 历史数据（不下载工作文件）...")
         
         # 从 URL 中提取项目名
         url = re.sub(r'\.git$', '', self.remote_url)
@@ -75,17 +75,29 @@ class Code996Analyzer:
         else:
             self.project_name = "unknown-project"
         
-        # 创建临时目录
-        self.temp_dir = tempfile.mkdtemp(prefix="code996_")
+        # 创建 online_project 目录
+        online_dir = "online_project"
+        if not os.path.exists(online_dir):
+            os.makedirs(online_dir)
+        
+        # 为每个项目创建独立目录
+        self.temp_dir = os.path.join(online_dir, self.project_name)
+        
+        # 如果目录已存在，添加时间戳避免冲突
+        if os.path.exists(self.temp_dir):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.temp_dir = os.path.join(online_dir, f"{self.project_name}_{timestamp}")
         
         try:
-            # 克隆仓库（浅克隆以提高速度）
-            cmd = ["git", "clone", "--depth", "1000", self.remote_url, self.temp_dir]
+            # 使用 --bare 克隆，只下载 Git 对象，不下载工作文件
+            # 这样可以大幅减少下载量和时间
+            cmd = ["git", "clone", "--bare", "--depth", "1000", self.remote_url, self.temp_dir]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             
-            # 更新 repo_path 为临时目录
+            # 更新 repo_path 为 bare 仓库路径
             self.repo_path = self.temp_dir
-            print(f"✓ 仓库克隆完成")
+            print(f"✓ 仓库克隆完成（仅 Git 历史数据）")
+            print(f"📁 保存位置: {self.temp_dir}")
             
         except subprocess.CalledProcessError as e:
             print(f"克隆失败: {e.stderr}", file=sys.stderr)
@@ -94,12 +106,19 @@ class Code996Analyzer:
             sys.exit(1)
     
     def cleanup(self):
-        """清理临时目录"""
-        if self.temp_dir and os.path.exists(self.temp_dir):
-            print(f"正在清理临时文件...")
+        """清理临时目录（可选）"""
+        # 注意：对于远程仓库，我们保留在 online_project 目录中以便复用
+        # 如果需要清理，可以手动删除 online_project 目录
+        # 这里不自动清理，让用户可以复用已下载的仓库
+        if self.temp_dir and self.remote_url:
+            # 远程仓库保留不删除
+            print(f"\n💡 提示: 远程仓库已保存在 {self.temp_dir}")
+            print(f"   如需再次分析同一项目，可直接使用: --repo {self.temp_dir}")
+            print(f"   如需清理，请手动删除 online_project 目录")
+        elif self.temp_dir and os.path.exists(self.temp_dir) and not self.remote_url:
+            # 只清理非远程的临时目录
             try:
                 shutil.rmtree(self.temp_dir)
-                print("✓ 临时文件已清理")
             except Exception as e:
                 print(f"警告: 清理临时文件失败: {e}", file=sys.stderr)
     

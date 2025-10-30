@@ -15,6 +15,8 @@ Compared to the original version, the local version provides:
 - **Visual Consistency** - Pixel fonts + hand-drawn style charts, fully restored original effect
 - **Flexible Customization** - Rich command-line parameters, support batch processing
 - **Ready to Use** - Pure Python implementation, no third-party libraries required
+- **Smart Clone** - Remote repositories download only Git history, saving space and time
+- **Repository Reuse** - Cloned remote repositories can be reused
 
 ## Preview
 
@@ -101,9 +103,13 @@ python code996_local.py --author "My Name" --start 2024-01-01
 
 ### 3. Quick Analysis of Open Source Projects
 ```bash
-# No manual cloning needed, analyze directly
+# No manual cloning needed, analyze directly (only downloads Git history)
 python code996_local.py --url https://github.com/torvalds/linux
 python code996_local.py --url https://github.com/facebook/react
+
+# Repositories are saved in online_project/ directory for reuse
+# Next time, use the already downloaded repository (faster):
+python code996_local.py --repo online_project/torvalds-linux
 ```
 
 ### 4. Compare Multiple Projects
@@ -213,6 +219,24 @@ git status  # Check if it's a Git repository
 Adjust time range:
 ```bash
 python code996_local.py --start 2020-01-01
+```
+
+### Remote repository clone is slow
+
+Using `--bare` clone, only downloads Git history without working files, much faster:
+```bash
+# Already optimized, automatically uses bare clone
+python code996_local.py --url https://github.com/user/repo
+```
+
+### How to reuse cloned repositories
+
+```bash
+# First time clone (saved in online_project directory)
+python code996_local.py --url https://github.com/facebook/react
+
+# Next time use the already cloned repository (no re-download)
+python code996_local.py --repo online_project/facebook-react
 ```
 
 ### Charts not displaying
