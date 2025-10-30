@@ -1,0 +1,98 @@
+===============================================
+Code996 本地版 - 使用说明
+===============================================
+
+【快速开始】
+
+1. 打开命令行/终端
+2. 进入你的 Git 项目目录
+3. 运行命令：python code996_local.py
+4. 等待分析完成，自动打开报告
+
+【常用命令】
+
+# 基础使用（分析当前项目）
+python code996_local.py
+
+# 分析指定时间段
+python code996_local.py --start 2024-01-01 --end 2024-12-31
+
+# 分析特定开发者
+python code996_local.py --author "你的名字"
+
+# 自定义输出文件名
+python code996_local.py --output my_report.html
+
+# 不自动打开浏览器
+python code996_local.py --no-browser
+
+# 分析其他项目
+python code996_local.py --repo D:\path\to\project
+
+【Windows 用户】
+
+直接双击运行 code996_local.bat 文件
+
+或在项目目录右键选择"在此处打开命令行"，然后输入：
+python code996_local.py
+
+【查看帮助】
+
+python code996_local.py --help
+
+【示例】
+
+# 示例1：分析2024年全年的个人工作情况
+python code996_local.py --start 2024-01-01 --end 2024-12-31 --author "张三"
+
+# 示例2：分析最近3个月
+python code996_local.py --start 2024-07-01
+
+# 示例3：批量分析多个项目
+python code996_local.py --repo D:\projects\project1 --output project1.html
+python code996_local.py --repo D:\projects\project2 --output project2.html
+
+【生成的报告】
+
+默认生成文件名：code996_report.html
+直接双击打开即可查看
+
+【996指数含义】
+
+0分：无加班，工作生活平衡
+50分：中度加班
+100分：标准996工作制（早9晚9，每周6天）
+150分：超重度加班
+
+【注意事项】
+
+1. 确保当前目录是 Git 仓库
+2. 确保已安装 Python 3.6+
+3. 确保 Git 命令可用
+4. commit数量至少50个以上结果才比较准确
+
+【遇到问题？】
+
+问题1：提示"Git命令执行失败"
+解决：检查是否在Git仓库目录，运行 git status 确认
+
+问题2：commit数量为0
+解决：调整时间范围或检查是否有提交记录
+
+问题3：图表不显示
+解决：检查网络连接（需要加载在线图表库）
+
+【文档】
+
+- 快速开始：QUICKSTART.md
+- 完整文档：CODE996_LOCAL_README.md
+- 技术说明：PROJECT_SUMMARY.md
+
+【项目地址】
+
+原项目：https://github.com/hellodigua/code996
+
+===============================================
+祝使用愉快！
+===============================================
+
