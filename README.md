@@ -17,6 +17,7 @@
 -  **开箱即用** - 纯 Python 实现，无需安装第三方库
 -  **智能克隆** - 远程仓库仅下载 Git 历史，节省空间和时间
 -  **仓库复用** - 已克隆的远程仓库可重复使用
+-  **多仓库汇总** ⭐ - 支持批量分析多个仓库，生成汇总报告
 
 ##  预览
 
@@ -51,6 +52,7 @@ python code996_local.py
 ### 常用命令
 
 ```bash
+# 单仓库分析
 # 指定时间范围
 python code996_local.py --start 2024-01-01 --end 2024-12-31
 
@@ -60,8 +62,21 @@ python code996_local.py --author "张三"
 # 分析本地其他项目
 python code996_local.py --repo /path/to/project
 
-# 分析远程 Git 仓库 ⭐ 新功能
+# 分析远程 Git 仓库
 python code996_local.py --url https://github.com/user/repo
+
+# 多仓库汇总分析 ⭐ 新功能
+# 方式1：逗号分隔的本地仓库
+python code996_local.py --repos /path/repo1,/path/repo2,/path/repo3 --project-name "Team Backend"
+
+# 方式2：逗号分隔的远程仓库
+python code996_local.py --urls https://github.com/org/repo1,https://github.com/org/repo2
+
+# 方式3：多次传入参数（可混合本地和远程）
+python code996_local.py --repo /local/repo1 --repo /local/repo2 --url https://github.com/org/repo3
+
+# 方式4：从文件读取仓库列表
+python code996_local.py --input-file repos.txt --project-name "Q4 Projects"
 
 # 自定义输出文件（可指定路径）
 python code996_local.py --output my_report.html
@@ -78,9 +93,13 @@ code996_local.bat
 | `--start, -s` | 起始日期 (YYYY-MM-DD) | 2022-01-01 |
 | `--end, -e` | 结束日期 (YYYY-MM-DD) | 今天 |
 | `--author, -a` | 指定作者 (name/email) | 全部 |
-| `--repo, -r` | 本地 Git 仓库路径 | 当前目录 |
-| `--url, -u` | 远程 Git 仓库 URL ⭐ | 无 |
-| `--output, -o` | 输出文件名 | report/项目名·时间戳-result.html ⭐ |
+| `--repo, -r` | 本地 Git 仓库路径（可多次使用） | 当前目录 |
+| `--url, -u` | 远程 Git 仓库 URL（可多次使用） | 无 |
+| `--repos` | 逗号分隔的本地仓库列表 ⭐ | 无 |
+| `--urls` | 逗号分隔的远程仓库URL列表 ⭐ | 无 |
+| `--input-file` | 从文件读取仓库列表 ⭐ | 无 |
+| `--project-name` | 多仓库汇总项目名称 ⭐ | 自动生成 |
+| `--output, -o` | 输出文件名 | report/项目名·时间戳-result.html |
 | `--no-browser` | 不自动打开浏览器 | - |
 | `--help, -h` | 显示帮助 | - |
 
@@ -112,7 +131,32 @@ python code996_local.py --url https://github.com/facebook/react
 python code996_local.py --repo online_project/torvalds-linux
 ```
 
-### 4. 对比多个项目
+### 4. 团队多项目汇总分析 ⭐ 新功能
+```bash
+# 分析团队的所有微服务仓库
+python code996_local.py \
+  --repos /srv/api,/srv/web,/srv/worker,/srv/scheduler \
+  --project-name "Backend Team Q4" \
+  --start 2024-10-01
+
+# 分析多个开源项目的整体活跃度
+python code996_local.py \
+  --urls https://github.com/vuejs/core,https://github.com/vuejs/router,https://github.com/vuejs/pinia \
+  --project-name "Vue Ecosystem"
+
+# 从文件批量读取仓库（支持混合本地和远程）
+cat > my_projects.txt << EOF
+# 我的项目列表
+/home/user/project1
+/home/user/project2
+https://github.com/myteam/repo1
+https://github.com/myteam/repo2
+EOF
+
+python code996_local.py --input-file my_projects.txt --project-name "My Projects 2024"
+```
+
+### 5. 对比多个项目（生成独立报告）
 ```bash
 # 本地项目
 for proj in proj1 proj2 proj3; do
@@ -124,7 +168,7 @@ python code996_local.py --url https://github.com/user/repo1 --output repo1.html
 python code996_local.py --url https://github.com/user/repo2 --output repo2.html
 ```
 
-### 5. 定期生成周报
+### 6. 定期生成周报
 ```bash
 python code996_local.py --output weekly_$(date +%Y%m%d).html
 ```
@@ -281,6 +325,11 @@ git log --date=format:%u --after="start" --before="end" | grep "Date:"
 3. **跨时区项目**统计结果可能不准确
 4. **个人项目**（工作时间不固定）也不准确
 5. **commit 数量过少**（< 50）结果参考价值有限
+6. **多仓库汇总**：
+   - 汇总模式会合并所有仓库的 commit 时间数据
+   - 不同仓库可能来自不同时区、不同团队，存在一定误差
+   - 单个仓库失败不会中断整体分析
+   - 报告中会显示每个仓库的详细信息和占比
 
 ##  致谢
 

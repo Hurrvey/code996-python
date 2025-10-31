@@ -18,6 +18,103 @@ import tempfile
 import shutil
 import re
 
+
+def parse_repo_list(args):
+    """
+    解析命令行参数，返回统一格式的仓库列表
+    
+    Args:
+        args: argparse解析后的参数对象
+    
+    Returns:
+        list: [{'path': 'xxx', 'type': 'local'/'remote'}, ...]
+    """
+    repos = []
+    
+    # 处理 --repos（逗号分隔）
+    if args.repos:
+        for path in args.repos.split(','):
+            path = path.strip()
+            if path:
+                repos.append({'path': path, 'type': 'local'})
+    
+    # 处理 --urls（逗号分隔）
+    if args.urls:
+        for url in args.urls.split(','):
+            url = url.strip()
+            if url:
+                repos.append({'path': url, 'type': 'remote'})
+    
+    # 处理 --repo 多次传入（action='append'）
+    if args.repo and isinstance(args.repo, list):
+        for path in args.repo:
+            if path:
+                repos.append({'path': path, 'type': 'local'})
+    
+    # 处理 --url 多次传入（action='append'）
+    if args.url and isinstance(args.url, list):
+        for url in args.url:
+            if url:
+                repos.append({'path': url, 'type': 'remote'})
+    
+    # 处理 --input-file
+    if args.input_file:
+        if not os.path.exists(args.input_file):
+            print(f"错误: 文件不存在: {args.input_file}", file=sys.stderr)
+            sys.exit(1)
+        
+        with open(args.input_file, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                
+                # 跳过空行和纯注释行
+                if not line or line.startswith('#'):
+                    continue
+                
+                # 移除行内注释
+                if '#' in line:
+                    line = line.split('#')[0].strip()
+                
+                if not line:
+                    continue
+                
+                # 判断是本地路径还是 URL
+                if line.startswith('http://') or line.startswith('https://') or line.startswith('git@'):
+                    repos.append({'path': line, 'type': 'remote'})
+                else:
+                    repos.append({'path': line, 'type': 'local'})
+    
+    # 如果没有提供任何仓库参数，默认当前目录（单仓库模式）
+    if not repos:
+        repos.append({'path': '.', 'type': 'local'})
+    
+    return repos
+
+
+def validate_repo_params(args):
+    """
+    验证仓库参数的有效性，防止新旧参数混用
+    
+    Args:
+        args: argparse解析后的参数对象
+    
+    Raises:
+        SystemExit: 参数配置错误时退出
+    """
+    # 检测是否使用了多仓库参数
+    multi_repo_params = bool(args.repos or args.urls or args.input_file)
+    
+    # 检测是否使用了传统单仓库参数（但不是默认值）
+    # 注意：--repo 和 --url 现在支持多次传入，所以允许它们出现
+    # 只要不是与 --repos/--urls/--input-file 同时出现就行
+    
+    # 如果同时使用了逗号分隔参数和多次传入参数，给出警告但允许（它们会合并）
+    if multi_repo_params and (args.repo or args.url):
+        print("⚠️  提示: 同时使用了多种仓库参数格式，将合并所有仓库进行分析", file=sys.stderr)
+    
+    return True
+
+
 class Code996Analyzer:
     def __init__(self, start_date=None, end_date=None, author=None, repo_path=".", remote_url=None):
         self.start_date = start_date or "2022-01-01"
@@ -394,7 +491,393 @@ class Code996Analyzer:
         return result
 
 
-def get_default_output_filename(project_name):
+class MultiRepoAnalyzer:
+    """
+    多仓库批量分析器
+    循环分析多个仓库，合并统计数据，计算汇总指标
+    """
+    
+    def __init__(self, repo_list, start_date=None, end_date=None, author=None, project_name=None):
+        """
+        Args:
+            repo_list: [{'path': '...', 'type': 'local'/'remote'}, ...]
+            start_date: 起始日期
+            end_date: 结束日期
+            author: 作者过滤
+            project_name: 汇总项目名称
+        """
+        self.repo_list = repo_list
+        self.start_date = start_date
+        self.end_date = end_date
+        self.author = author
+        self.project_name = project_name or self.generate_default_name()
+        self.analyzers = []  # 保存每个仓库的分析器实例
+    
+    def generate_default_name(self):
+        """生成默认的项目名称"""
+        if len(self.repo_list) == 1:
+            # 单仓库，使用仓库名
+            path = self.repo_list[0]['path']
+            if self.repo_list[0]['type'] == 'remote':
+                # 从URL提取名称
+                match = re.search(r'[:/]([^/]+/[^/]+?)(?:\.git)?/?$', path)
+                if match:
+                    return match.group(1).replace('/', '-')
+            return os.path.basename(os.path.abspath(path))
+        else:
+            # 多仓库，使用 multi-project 前缀
+            return f"multi-project-{len(self.repo_list)}-repos"
+    
+    def analyze(self):
+        """
+        循环分析每个仓库，合并结果
+        
+        Returns:
+            dict: 汇总结果字典（结构与单仓库兼容，但新增汇总相关字段）
+        """
+        print(f"\n{'='*60}")
+        print(f"多仓库汇总分析: {self.project_name}")
+        print(f"共 {len(self.repo_list)} 个仓库")
+        print(f"{'='*60}\n")
+        
+        # 1. 初始化汇总容器
+        merged_hour_data = defaultdict(int)  # {hour: count}
+        merged_week_data = defaultdict(int)  # {weekday: count}
+        repo_results = []  # 每个仓库的详细结果
+        failed_repos = []  # 失败的仓库
+        
+        # 2. 循环分析每个仓库
+        for idx, repo_info in enumerate(self.repo_list, 1):
+            repo_path = repo_info['path']
+            repo_type = repo_info['type']
+            
+            print(f"[{idx}/{len(self.repo_list)}] 分析仓库: {repo_path}")
+            
+            try:
+                # 创建单仓库分析器
+                if repo_type == 'remote':
+                    analyzer = Code996Analyzer(
+                        start_date=self.start_date,
+                        end_date=self.end_date,
+                        author=self.author,
+                        repo_path='.',
+                        remote_url=repo_path
+                    )
+                else:
+                    analyzer = Code996Analyzer(
+                        start_date=self.start_date,
+                        end_date=self.end_date,
+                        author=self.author,
+                        repo_path=repo_path,
+                        remote_url=None
+                    )
+                
+                # 保存分析器实例（用于后续清理）
+                self.analyzers.append(analyzer)
+                
+                # 执行单仓库分析
+                result = analyzer.analyze()
+                
+                # 获取仓库名称
+                repo_name = analyzer.get_project_name()
+                
+                # 收集元信息
+                repo_results.append({
+                    'name': repo_name,
+                    'path': repo_path,
+                    'type': repo_type,
+                    'result': result
+                })
+                
+                # 合并小时统计数据
+                for item in result['hour_data']:
+                    merged_hour_data[item['time']] += item['count']
+                
+                # 合并星期统计数据
+                for item in result['week_data']:
+                    merged_week_data[item['time']] += item['count']
+                
+                print(f"    ✓ 完成 (commit数: {result['total_count']})")
+                
+            except Exception as e:
+                print(f"    ✗ 失败: {e}", file=sys.stderr)
+                failed_repos.append({
+                    'path': repo_path,
+                    'error': str(e)
+                })
+                continue
+        
+        # 检查是否所有仓库都失败了
+        if not repo_results:
+            print("\n错误: 所有仓库分析都失败了", file=sys.stderr)
+            sys.exit(1)
+        
+        # 如果有失败的仓库，显示警告
+        if failed_repos:
+            print(f"\n⚠️  警告: {len(failed_repos)} 个仓库分析失败:")
+            for failed in failed_repos:
+                print(f"   - {failed['path']}: {failed['error']}")
+        
+        # 3. 将合并数据转换为标准格式
+        # 小时数据：确保按小时排序
+        hour_data = [
+            {'time': hour, 'count': merged_hour_data[hour]}
+            for hour in sorted(merged_hour_data.keys())
+        ]
+        
+        # 星期数据：保持固定顺序
+        week_labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+        week_data = [
+            {'time': label, 'count': merged_week_data.get(label, 0)}
+            for label in week_labels
+        ]
+        
+        # 4. 对合并数据计算汇总指标（复用现有函数）
+        total_count = sum(merged_hour_data.values())
+        
+        # 计算工作时间范围
+        opening_time, closing_time = self.calculate_work_time_range(hour_data)
+        
+        # 计算工作/加班时间
+        work_hour_pl, _, _ = self.calculate_working_time(hour_data, opening_time)
+        
+        # 计算每周工作天数
+        work_days, work_week_pl = self.calculate_week_type(week_data)
+        
+        # 计算996指数
+        index_996, overtime_ratio, is_standard = self.calculate_996_index(
+            work_hour_pl, work_week_pl, hour_data
+        )
+        
+        # 获取描述
+        description = self.get_index_description(index_996)
+        
+        # 5. 构建汇总结果
+        opening_hour = int(opening_time['time']) if opening_time else None
+        closing_hour = int(closing_time['time']) if closing_time else None
+        
+        aggregate_result = {
+            # 基本信息
+            'start_date': self.start_date or "2022-01-01",
+            'end_date': self.end_date or datetime.now().strftime("%Y-%m-%d"),
+            'total_count': total_count,
+            
+            # 统计数据（与单仓库格式一致）
+            'hour_data': hour_data,
+            'week_data': week_data,
+            'work_hour_pl': work_hour_pl,
+            'work_week_pl': work_week_pl,
+            
+            # 工作时间特征
+            'opening_hour': opening_hour,
+            'closing_hour': closing_hour % 12 if closing_hour else None,
+            'work_days': work_days,
+            
+            # 996指标
+            'index_996': index_996,
+            'overtime_ratio': overtime_ratio,
+            'is_standard': is_standard,
+            'description': description,
+            
+            # 多仓库特有字段 ⭐
+            'is_aggregate': True,  # 标记为汇总模式
+            'project_name': self.project_name,
+            'repo_count': len(repo_results),
+            'repo_results': repo_results,
+            'failed_count': len(failed_repos)
+        }
+        
+        return aggregate_result
+    
+    def calculate_work_time_range(self, hour_data):
+        """计算工作时间范围（复用Code996Analyzer的算法）"""
+        if not hour_data:
+            return None, None
+        
+        total_count = sum(item['count'] for item in hour_data)
+        if total_count == 0:
+            return None, None
+        
+        quadratic_value = sum(item['count'] ** 2 for item in hour_data) / len(hour_data)
+        standard_value = math.sqrt(quadratic_value)
+        
+        work_hours = [item for item in hour_data if item['count'] / standard_value >= 0.45]
+        
+        opening_data = [item for item in work_hours if 8 <= int(item['time']) <= 12]
+        closing_data = [item for item in work_hours if 17 <= int(item['time']) <= 23]
+        
+        opening_time = min(opening_data, key=lambda x: int(x['time'])) if opening_data else None
+        closing_time = max(closing_data, key=lambda x: int(x['time'])) if closing_data else None
+        
+        return opening_time, closing_time
+    
+    def calculate_working_time(self, hour_data, opening_time):
+        """计算工作时间和加班时间（复用Code996Analyzer的算法）"""
+        if not opening_time or not hour_data:
+            total_count = sum(item['count'] for item in hour_data)
+            working_time = [item for item in hour_data if 9 <= int(item['time']) <= 18]
+            working_else_time = [item for item in hour_data if item not in working_time]
+            
+            working_time_count = sum(item['count'] for item in working_time)
+            working_else_time_count = sum(item['count'] for item in working_else_time)
+            
+            work_hour_pl = [
+                {"time": "工作", "count": working_time_count},
+                {"time": "加班", "count": working_else_time_count}
+            ]
+            return work_hour_pl, working_time_count, working_else_time_count
+        
+        opening_hour = int(opening_time['time'])
+        
+        working_time = [item for item in hour_data if opening_hour <= int(item['time']) <= opening_hour + 9]
+        working_else_time = [item for item in hour_data if item not in working_time]
+        
+        working_time_count = sum(item['count'] for item in working_time)
+        working_else_time_count = sum(item['count'] for item in working_else_time)
+        
+        work_hour_pl = [
+            {"time": "工作", "count": working_time_count},
+            {"time": "加班", "count": working_else_time_count}
+        ]
+        
+        return work_hour_pl, working_time_count, working_else_time_count
+    
+    def calculate_week_type(self, week_data):
+        """计算每周工作天数（复用Code996Analyzer的算法）"""
+        total_count = sum(item['count'] for item in week_data)
+        if total_count == 0:
+            return 5, []
+        
+        workday_count = sum(week_data[i]['count'] for i in range(5))
+        weekend_count = sum(week_data[i]['count'] for i in range(5, 7))
+        
+        workday_ratio = (workday_count / total_count) * 100
+        
+        if workday_ratio >= 90:
+            work_days = 5
+        elif workday_ratio >= 85:
+            work_days = 6
+        elif workday_ratio >= 79:
+            work_days = 6
+        elif workday_ratio >= 72:
+            work_days = 7
+        else:
+            work_days = 7
+        
+        work_week_pl = [
+            {"time": "工作日", "count": workday_count},
+            {"time": "周末", "count": weekend_count}
+        ]
+        
+        return work_days, work_week_pl
+    
+    def calculate_996_index(self, work_hour_pl, work_week_pl, hour_data):
+        """计算996指数（复用Code996Analyzer的算法）"""
+        if not work_hour_pl or len(work_hour_pl) < 2 or not work_week_pl or len(work_week_pl) < 2:
+            return 0, 0, False
+        
+        y = work_hour_pl[0]['count']
+        x = work_hour_pl[1]['count']
+        m = work_week_pl[0]['count']
+        n = work_week_pl[1]['count']
+        
+        total_count = y + x
+        if total_count == 0:
+            return 0, 0, False
+        
+        overtime_amend_count = round(x + (y * n) / (m + n) if (m + n) > 0 else x)
+        overtime_ratio = math.ceil((overtime_amend_count / total_count) * 100)
+        
+        if overtime_ratio == 0 and len(hour_data) < 9:
+            average_commit = total_count / len(hour_data) if len(hour_data) > 0 else 0
+            mock_total_count = average_commit * 9
+            if mock_total_count > 0:
+                overtime_ratio = math.ceil((total_count / mock_total_count) * 100) - 100
+        
+        index_996 = overtime_ratio * 3
+        
+        # 多仓库汇总通常commit数量较多，is_standard判断更宽松
+        is_standard = index_996 < 200 and total_count > 30
+        
+        return index_996, overtime_ratio, is_standard
+    
+    def get_index_description(self, index_996):
+        """根据996指数返回描述（复用Code996Analyzer的逻辑）"""
+        if index_996 <= 10:
+            return '令人羡慕的工作'
+        elif 10 < index_996 <= 50:
+            return '你还有剩余价值'
+        elif 50 < index_996 <= 90:
+            return '加油，老板的法拉利靠你了'
+        elif 90 < index_996 <= 110:
+            return '你的福报已经修满了'
+        else:
+            return '你们想必就是卷王中的卷王吧'
+    
+    def cleanup(self):
+        """清理所有分析器的临时文件"""
+        for analyzer in self.analyzers:
+            try:
+                analyzer.cleanup()
+            except Exception as e:
+                print(f"警告: 清理临时文件失败: {e}", file=sys.stderr)
+
+
+def generate_repo_list_html(repo_results, total_count):
+    """
+    生成参与仓库列表的 HTML 表格
+    
+    Args:
+        repo_results: 仓库结果列表
+        total_count: 总 commit 数
+    
+    Returns:
+        str: HTML 表格代码
+    """
+    html = """
+    <h2 class="title">📦 参与仓库列表</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>仓库名称</th>
+                    <th>来源类型</th>
+                    <th>Commit 数</th>
+                    <th>占比</th>
+                    <th>996 指数</th>
+                </tr>
+            </thead>
+            <tbody>
+    """
+    
+    for repo in repo_results:
+        name = repo['name']
+        repo_type = '🌐 远程' if repo['type'] == 'remote' else '📁 本地'
+        count = repo['result']['total_count']
+        ratio = round(count / total_count * 100, 1) if total_count > 0 else 0
+        index = repo['result']['index_996']
+        
+        html += f"""
+                <tr>
+                    <td style="text-align: left;">{name}</td>
+                    <td>{repo_type}</td>
+                    <td>{count}</td>
+                    <td>{ratio}%</td>
+                    <td>{index}</td>
+                </tr>
+        """
+    
+    html += """
+            </tbody>
+        </table>
+        <p style='margin-top: 10px; color: #999; font-size: 14px;'>* 汇总数据为所有仓库合并后计算得出</p>
+    </div>
+    """
+    
+    return html
+
+
+def get_default_output_filename(project_name, is_aggregate=False):
     """生成默认的输出文件名"""
     # 获取当前时间
     now = datetime.now()
@@ -402,6 +885,10 @@ def get_default_output_filename(project_name):
     
     # 清理项目名（移除特殊字符）
     clean_name = re.sub(r'[<>:"/\\|?*]', '-', project_name)
+    
+    # 多仓库模式添加前缀标识
+    if is_aggregate and not clean_name.startswith('multi-'):
+        clean_name = f"multi-{clean_name}"
     
     # 生成文件名格式：项目名·时间戳-result.html
     filename = f"{clean_name}·{timestamp}-result.html"
@@ -418,11 +905,14 @@ def get_default_output_filename(project_name):
 def generate_html(result, output_file=None, project_name=None):
     """生成HTML报告"""
     
+    # 检测是否为汇总模式
+    is_aggregate = result.get('is_aggregate', False)
+    
     # 如果未指定输出文件，使用默认格式
     if not output_file:
         if not project_name:
-            project_name = "unknown-project"
-        output_file = get_default_output_filename(project_name)
+            project_name = result.get('project_name', 'unknown-project')
+        output_file = get_default_output_filename(project_name, is_aggregate)
     
     # 读取chart.xkcd库
     chart_xkcd_cdn = "https://cdn.jsdelivr.net/npm/chart.xkcd@1.1.13/dist/chart.xkcd.min.js"
@@ -497,12 +987,18 @@ def generate_html(result, output_file=None, project_name=None):
     table_data.append(current_project)
     table_data = sorted(table_data, key=lambda x: float(x['index']))
     
+    # 生成标题文本
+    if is_aggregate:
+        page_title = f"聚合项目：{result.get('project_name', 'Multi-Project')}（共 {result.get('repo_count', 0)} 个仓库）"
+    else:
+        page_title = "#CODE996 Result"
+    
     html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code996 分析报告</title>
+    <title>Code996 分析报告 - {project_name or 'Project'}</title>
     <script src="{chart_xkcd_cdn}"></script>
     <style>
         /* 字体定义 */
@@ -729,7 +1225,7 @@ def generate_html(result, output_file=None, project_name=None):
 <body>
     <div class="top-bar">
         <div class="container">
-            <h1>#CODE996 Result</h1>
+            <h1>{page_title}</h1>
         </div>
     </div>
     
@@ -748,6 +1244,8 @@ def generate_html(result, output_file=None, project_name=None):
             </div>
             {"<p class='exp'>996 指数：为 0 则不加班，值越大代表加班越严重，996 工作制对应的值为 100，负值说明工作非常轻松。<a href='#compare-table' style='color: #de335e;'>具体可参考下方表格</a></p>" if result['is_standard'] else ""}
         </div>
+        
+        {generate_repo_list_html(result['repo_results'], result['total_count']) if is_aggregate else ""}
         
         <div class="charts">
             <div class="section">
@@ -792,7 +1290,9 @@ def generate_html(result, output_file=None, project_name=None):
         </div>
         
         <div class="notice">
-            <h2 class="title">注意事项：</h2>
+            <h2 class="title">⚠️ 注意事项：</h2>
+            {f"<p>📊 本报告为 <strong>{result.get('repo_count', 0)} 个仓库</strong>的汇总分析，数据已合并计算</p>" if is_aggregate else ""}
+            {f"<p>🌍 多仓库数据可能来自不同时区、不同团队，存在一定误差</p>" if is_aggregate else ""}
             <p>1. 分析结果仅供参考，不代表任何建议</p>
             <p>2. 原始分析数据基于 Git commit 时间，可能与实际工作时间有偏差</p>
             <p>3. 请勿用于正式场合</p>
@@ -904,14 +1404,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  # 分析本地项目
+  # 分析单个本地项目
   python code996_local.py
   python code996_local.py --start 2023-01-01 --end 2023-12-31
   python code996_local.py --author "yourname" --output my_report.html
   
-  # 分析远程项目
+  # 分析单个远程项目
   python code996_local.py --url https://github.com/user/repo
   python code996_local.py --url https://github.com/user/repo --author "yourname"
+  
+  # 多仓库汇总分析 ⭐ 新功能
+  python code996_local.py --repos /path/repo1,/path/repo2,/path/repo3 --project-name "Team Backend"
+  python code996_local.py --urls https://github.com/org/repo1,https://github.com/org/repo2
+  python code996_local.py --input-file repos.txt --project-name "Q4 Projects"
         """
     )
     
@@ -921,10 +1426,23 @@ def main():
                         help='分析的结束时间 (格式: YYYY-MM-DD)')
     parser.add_argument('--author', '-a', default=None,
                         help='指定提交用户 (name 或 email)')
-    parser.add_argument('--repo', '-r', default='.',
-                        help='Git 仓库路径 (默认: 当前目录)')
-    parser.add_argument('--url', '-u', default=None,
-                        help='远程 Git 仓库 URL (如: https://github.com/user/repo)')
+    
+    # 单仓库参数（支持多次传入）
+    parser.add_argument('--repo', '-r', action='append', default=None,
+                        help='Git 仓库路径 (可多次使用)')
+    parser.add_argument('--url', '-u', action='append', default=None,
+                        help='远程 Git 仓库 URL (可多次使用)')
+    
+    # 多仓库参数 ⭐ 新增
+    parser.add_argument('--repos', default=None,
+                        help='逗号分隔的本地仓库路径列表 (如: /path1,/path2)')
+    parser.add_argument('--urls', default=None,
+                        help='逗号分隔的远程仓库URL列表 (如: url1,url2)')
+    parser.add_argument('--input-file', default=None,
+                        help='从文件读取仓库列表 (每行一个，支持 # 注释)')
+    parser.add_argument('--project-name', default=None,
+                        help='多仓库汇总项目的显示名称')
+    
     parser.add_argument('--output', '-o', default=None,
                         help='输出HTML文件名 (默认: report/项目名·时间戳-result.html)')
     parser.add_argument('--no-browser', action='store_true',
@@ -932,44 +1450,102 @@ def main():
     
     args = parser.parse_args()
     
-    # 创建分析器
-    analyzer = Code996Analyzer(
-        start_date=args.start,
-        end_date=args.end,
-        author=args.author,
-        repo_path=args.repo,
-        remote_url=args.url
-    )
+    # 验证参数
+    validate_repo_params(args)
+    
+    # 解析仓库列表
+    repo_list = parse_repo_list(args)
+    
+    # 判断模式：单仓库 or 多仓库
+    is_multi_repo = len(repo_list) > 1 or args.project_name or args.repos or args.urls or args.input_file
+    
+    analyzer_instance = None
+    multi_analyzer_instance = None
     
     try:
-        # 执行分析
-        result = analyzer.analyze()
-        
-        # 获取项目名称
-        project_name = analyzer.get_project_name()
-        
-        # 生成HTML报告
-        output_file = generate_html(result, args.output, project_name)
-        
-        # 打印结果摘要
-        print("\n" + "="*50)
-        print("分析结果摘要")
-        print("="*50)
-        print(f"项目名称: {project_name}")
-        if result['is_standard']:
-            print(f"996指数: {result['index_996']}")
-            print(f"工作类型: {result['opening_hour'] or '?'}{result['closing_hour'] or '?'}{result['work_days']}")
-            print(f"加班占比: {result['overtime_ratio']}%")
-            print(f"评价: {result['description']}")
-        else:
-            if result['total_count'] <= 50:
-                print("该项目的 commit 数量过少，只显示基本信息")
+        if is_multi_repo:
+            # ========== 多仓库模式 ==========
+            print("\n🚀 启动多仓库汇总分析模式")
+            
+            multi_analyzer_instance = MultiRepoAnalyzer(
+                repo_list=repo_list,
+                start_date=args.start,
+                end_date=args.end,
+                author=args.author,
+                project_name=args.project_name
+            )
+            
+            # 执行分析
+            result = multi_analyzer_instance.analyze()
+            project_name = result['project_name']
+            
+            # 生成HTML报告
+            output_file = generate_html(result, args.output, project_name)
+            
+            # 打印结果摘要
+            print("\n" + "="*60)
+            print("📊 多仓库汇总分析结果")
+            print("="*60)
+            print(f"项目名称: {project_name}")
+            print(f"仓库数量: {result['repo_count']}")
+            print(f"总 commit 数: {result['total_count']}")
+            
+            if result['is_standard']:
+                print(f"996 指数: {result['index_996']}")
+                print(f"工作类型: {result['opening_hour'] or '?'}{result['closing_hour'] or '?'}{result['work_days']}")
+                print(f"加班占比: {result['overtime_ratio']}%")
+                print(f"评价: {result['description']}")
             else:
-                print("该项目为开源项目，只显示基本信息")
-        print(f"总commit数: {result['total_count']}")
-        print("="*50)
+                if result['total_count'] <= 30:
+                    print("汇总 commit 数量较少，只显示基本信息")
+                else:
+                    print("显示基本信息")
+            
+            if result.get('failed_count', 0) > 0:
+                print(f"⚠️  失败仓库: {result['failed_count']} 个")
+            
+            print("="*60)
+            
+        else:
+            # ========== 单仓库模式（向后兼容）==========
+            repo_info = repo_list[0]
+            
+            analyzer_instance = Code996Analyzer(
+                start_date=args.start,
+                end_date=args.end,
+                author=args.author,
+                repo_path=repo_info['path'] if repo_info['type'] == 'local' else '.',
+                remote_url=repo_info['path'] if repo_info['type'] == 'remote' else None
+            )
+            
+            # 执行分析
+            result = analyzer_instance.analyze()
+            
+            # 获取项目名称
+            project_name = analyzer_instance.get_project_name()
+            
+            # 生成HTML报告
+            output_file = generate_html(result, args.output, project_name)
+            
+            # 打印结果摘要
+            print("\n" + "="*50)
+            print("分析结果摘要")
+            print("="*50)
+            print(f"项目名称: {project_name}")
+            if result['is_standard']:
+                print(f"996指数: {result['index_996']}")
+                print(f"工作类型: {result['opening_hour'] or '?'}{result['closing_hour'] or '?'}{result['work_days']}")
+                print(f"加班占比: {result['overtime_ratio']}%")
+                print(f"评价: {result['description']}")
+            else:
+                if result['total_count'] <= 50:
+                    print("该项目的 commit 数量过少，只显示基本信息")
+                else:
+                    print("该项目为开源项目，只显示基本信息")
+            print(f"总commit数: {result['total_count']}")
+            print("="*50)
         
-        # 显示生成的文件信息
+        # ========== 共通部分：显示报告信息并打开浏览器 ==========
         abs_path = os.path.abspath(output_file)
         print(f"\n✓ 报告已生成")
         print(f"📄 文件名: {os.path.basename(output_file)}")
@@ -982,7 +1558,10 @@ def main():
     
     finally:
         # 清理临时文件
-        analyzer.cleanup()
+        if analyzer_instance:
+            analyzer_instance.cleanup()
+        if multi_analyzer_instance:
+            multi_analyzer_instance.cleanup()
 
 
 if __name__ == '__main__':

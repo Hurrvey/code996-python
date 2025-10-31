@@ -1,0 +1,15 @@
+# Code996 多仓库分析示例文件
+# 格式：每行一个仓库路径或URL
+# 支持 # 开头的注释行
+
+# 本地仓库示例
+.  # 当前目录
+
+# 远程仓库示例（取消注释以使用）
+# https://github.com/hellodigua/code996
+# https://github.com/torvalds/linux
+
+# 混合使用
+# /path/to/local/repo1
+# https://github.com/org/repo2
+

@@ -17,6 +17,7 @@ Compared to the original version, the local version provides:
 - **Ready to Use** - Pure Python implementation, no third-party libraries required
 - **Smart Clone** - Remote repositories download only Git history, saving space and time
 - **Repository Reuse** - Cloned remote repositories can be reused
+- **Multi-Repo Aggregation** ⭐ - Support batch analysis of multiple repositories with aggregated reports
 
 ## Preview
 
@@ -51,6 +52,7 @@ The script will automatically:
 ### Common Commands
 
 ```bash
+# Single repository analysis
 # Specify time range
 python code996_local.py --start 2024-01-01 --end 2024-12-31
 
@@ -60,8 +62,21 @@ python code996_local.py --author "John Doe"
 # Analyze other local projects
 python code996_local.py --repo /path/to/project
 
-# Analyze remote Git repository ⭐ New Feature
+# Analyze remote Git repository
 python code996_local.py --url https://github.com/user/repo
+
+# Multi-repository aggregated analysis ⭐ New Feature
+# Method 1: Comma-separated local repositories
+python code996_local.py --repos /path/repo1,/path/repo2,/path/repo3 --project-name "Team Backend"
+
+# Method 2: Comma-separated remote repositories
+python code996_local.py --urls https://github.com/org/repo1,https://github.com/org/repo2
+
+# Method 3: Multiple parameters (can mix local and remote)
+python code996_local.py --repo /local/repo1 --repo /local/repo2 --url https://github.com/org/repo3
+
+# Method 4: Read from file
+python code996_local.py --input-file repos.txt --project-name "Q4 Projects"
 
 # Custom output file (can specify path)
 python code996_local.py --output my_report.html
@@ -112,7 +127,32 @@ python code996_local.py --url https://github.com/facebook/react
 python code996_local.py --repo online_project/torvalds-linux
 ```
 
-### 4. Compare Multiple Projects
+### 4. Team Multi-Project Aggregation ⭐ New Feature
+```bash
+# Analyze all microservice repositories of a team
+python code996_local.py \
+  --repos /srv/api,/srv/web,/srv/worker,/srv/scheduler \
+  --project-name "Backend Team Q4" \
+  --start 2024-10-01
+
+# Analyze overall activity of multiple open source projects
+python code996_local.py \
+  --urls https://github.com/vuejs/core,https://github.com/vuejs/router,https://github.com/vuejs/pinia \
+  --project-name "Vue Ecosystem"
+
+# Batch read repositories from file (supports mixed local and remote)
+cat > my_projects.txt << EOF
+# My project list
+/home/user/project1
+/home/user/project2
+https://github.com/myteam/repo1
+https://github.com/myteam/repo2
+EOF
+
+python code996_local.py --input-file my_projects.txt --project-name "My Projects 2024"
+```
+
+### 5. Compare Multiple Projects (Generate Separate Reports)
 ```bash
 # Local projects
 for proj in proj1 proj2 proj3; do
@@ -124,7 +164,7 @@ python code996_local.py --url https://github.com/user/repo1 --output repo1.html
 python code996_local.py --url https://github.com/user/repo2 --output repo2.html
 ```
 
-### 5. Regular Weekly Reports
+### 6. Regular Weekly Reports
 ```bash
 python code996_local.py --output weekly_$(date +%Y%m%d).html
 ```
@@ -281,6 +321,11 @@ git log --date=format:%u --after="start" --before="end" | grep "Date:"
 3. **Cross-timezone projects** may have inaccurate statistics
 4. **Personal projects** (irregular work hours) may also be inaccurate
 5. **Too few commits** (< 50) have limited reference value
+6. **Multi-Repository Aggregation**:
+   - Aggregation mode merges commit time data from all repositories
+   - Different repositories may come from different timezones and teams, which may introduce some errors
+   - Individual repository failures will not interrupt the overall analysis
+   - The report shows detailed information and proportion for each repository
 
 ## Acknowledgments
 
